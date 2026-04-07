@@ -1,26 +1,27 @@
 use std::{collections::HashMap, fmt::Display};
 
 use rmcp::schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
+
+use crate::forecasting::forecast::{Forecast, Summary};
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ForecastInput {
     #[schemars(
-        description = "REQUIRED. List of places in format 'name/municipality', e.g: ['carballo/carballo', 'coruña/coruña']"
+        example = "['carballo/carballo', 'coruña/coruña']",
+        description = "List of places in format 'name/municipality'."
     )]
     pub places: Vec<String>,
     #[schemars(
-        description = "REQUIRED. Start time in format 'YYYY-MM-DDTHH:MM:SS', e.g: '2026-04-05T00:00:00'"
+        description = "Start time in format 'YYYY-MM-DDTHH:MM:SS'.",
+        example = "2026-04-05T00:00:00"
     )]
     pub start_time: String,
     #[schemars(
-        description = "REQUIRED. End time in format 'YYYY-MM-DDTHH:MM:SS', e.g: '2026-04-05T23:59:59'"
+        description = "End time in format 'YYYY-MM-DDTHH:MM:SS'.",
+        example = "2026-04-05T23:59:59"
     )]
     pub end_time: String,
-    #[schemars(description = "List of types, e.g: ['locality', 'beach']")]
-    pub types: Vec<String>,
-    #[schemars(description = "Language, e.g: 'gl' (Galician), 'es' (Spanish), 'en' (English)")]
-    pub lang: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -104,53 +105,73 @@ pub struct RawValueOutput {
 }
 
 #[derive(Serialize, JsonSchema)]
-pub struct ProcessedSummaryRow {
-    pub time: String,
-    pub value: f64,
-}
-
-#[derive(Serialize, JsonSchema)]
 pub struct ProcessedSummary {
-    pub temperature: Vec<ProcessedSummaryRow>,
-    pub relative_humidity: Vec<ProcessedSummaryRow>,
-    pub precipitation_amount: Vec<ProcessedSummaryRow>,
+    #[serde(serialize_with = "serialize_rounded")]
+    #[schemars(description = "Maximum temperature in ºC")]
+    pub temperature_max: f64,
+    #[serde(serialize_with = "serialize_rounded")]
+    #[schemars(description = "Minimum temperature in ºC")]
+    pub temperature_min: f64,
+    #[serde(serialize_with = "serialize_rounded")]
+    #[schemars(description = "Mean temperature in ºC")]
+    pub temperature_mean: f64,
+    #[serde(serialize_with = "serialize_rounded")]
+    #[schemars(description = "Mean relative humidity in %")]
+    pub relative_humidity_mean: f64,
+    #[serde(serialize_with = "serialize_rounded")]
+    #[schemars(description = "Precipitation amount accumulated in mm")]
+    pub precipitation_amount_accumulated: f64,
 }
 
-impl Default for ProcessedSummary {
-    fn default() -> Self {
-        Self {
-            temperature: vec![],
-            relative_humidity: vec![],
-            precipitation_amount: vec![],
-        }
-    }
-}
-
-impl ProcessedSummary {
-    pub fn add_temperature(&mut self, time: String, value: f64) {
-        self.temperature.push(ProcessedSummaryRow { time, value });
-    }
-
-    pub fn add_relative_humidity(&mut self, time: String, value: f64) {
-        self.relative_humidity
-            .push(ProcessedSummaryRow { time, value });
-    }
-
-    pub fn add_precipitation_amount(&mut self, time: String, value: f64) {
-        self.precipitation_amount
-            .push(ProcessedSummaryRow { time, value });
-    }
+fn serialize_rounded<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_f64(value.round())
 }
 
 #[derive(Serialize, JsonSchema)]
 pub struct ProcessedForecast {
     pub place: String,
     pub municipality: String,
-    pub summary: ProcessedSummary,
+    pub summary: HashMap<String, ProcessedSummary>,
     pub alerts: Vec<String>,
 }
 
 #[derive(Serialize, JsonSchema)]
 pub struct ForecastResponse {
     pub forecasts: Vec<ProcessedForecast>,
+}
+
+impl From<Forecast> for ProcessedForecast {
+    fn from(forecast: Forecast) -> Self {
+        Self {
+            place: forecast.place,
+            municipality: forecast.municipality,
+            summary: forecast.summary.into(),
+            alerts: forecast.alerts,
+        }
+    }
+}
+
+impl From<Summary> for HashMap<String, ProcessedSummary> {
+    fn from(summary: Summary) -> Self {
+        summary
+            .temperature
+            .keys()
+            .map(|date| {
+                (
+                    date.clone(),
+                    ProcessedSummary {
+                        temperature_max: summary.get_max_temperature(&date),
+                        temperature_min: summary.get_min_temperature(&date),
+                        temperature_mean: summary.get_mean_temperature(&date),
+                        relative_humidity_mean: summary.get_mean_relative_humidity(&date),
+                        precipitation_amount_accumulated: summary
+                            .get_precipitation_amount_accumulated(&date),
+                    },
+                )
+            })
+            .collect()
+    }
 }

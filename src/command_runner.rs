@@ -18,14 +18,6 @@ pub fn run_forecast(input: &ForecastInput) -> Result<String> {
     cmd.arg("--start-time").arg(input.start_time.clone());
     cmd.arg("--end-time").arg(input.end_time.clone());
 
-    for t in &input.types {
-        cmd.arg("--types").arg(t);
-    }
-
-    if let Some(lang) = &input.lang {
-        cmd.arg("--lang").arg(lang);
-    }
-
     if let Ok(key) = std::env::var("API_KEY") {
         cmd.env("API_KEY", key);
     }

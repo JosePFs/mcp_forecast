@@ -1,13 +1,14 @@
-use crate::server::WeatherServer;
+use crate::server::RiskWeatherServer;
 use rmcp::{ServiceExt, transport::io::stdio};
 
+pub mod bootstrap;
 pub mod command_runner;
 pub mod dto;
-pub mod rules;
+pub mod forecasting;
 pub mod server;
 
 pub async fn start_server() -> anyhow::Result<()> {
-    let service = WeatherServer::new().serve(stdio()).await?;
+    let service = RiskWeatherServer::new().serve(stdio()).await?;
 
     service.waiting().await?;
 
