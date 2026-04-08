@@ -1,5 +1,6 @@
 use crate::dto::RawDayOutputParameter;
 use crate::dto::RawForecast;
+use crate::dto::WindOrScalar;
 use crate::forecasting::Forecaster as ForecasterTrait;
 use crate::forecasting::RiskForecaster;
 use crate::forecasting::forecast::{Forecast, Summary};
@@ -71,6 +72,24 @@ impl<T: RiskForecaster> ForecasterTrait for Forecaster<T> {
                                         value.time.clone(),
                                         v,
                                     );
+                                }
+                            }
+
+                            if let Some(values) = day.values.get(&RawDayOutputParameter::Wind) {
+                                for value in values {
+                                    match serde_json::from_value::<WindOrScalar>(
+                                        value.value.clone(),
+                                    ) {
+                                        Ok(WindOrScalar::Wind { speed, direction }) => {
+                                            summary.add_wind(
+                                                day.date.clone(),
+                                                value.time.clone(),
+                                                speed,
+                                                direction,
+                                            );
+                                        }
+                                        _ => {}
+                                    }
                                 }
                             }
                         });

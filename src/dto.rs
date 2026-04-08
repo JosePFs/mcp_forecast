@@ -90,12 +90,22 @@ pub enum RawDayOutputParameter {
     #[schemars(description = "Precipitation amount in mm")]
     #[serde(rename = "precipitation_amount")]
     PrecipitationAmount,
+    #[schemars(description = "Wind speed in km/h")]
+    #[serde(rename = "wind")]
+    Wind,
 }
 
 #[derive(Deserialize, JsonSchema)]
 pub struct RawDayOutput {
     pub date: String,
     pub values: HashMap<RawDayOutputParameter, Vec<RawValueOutput>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum WindOrScalar {
+    Wind { speed: f64, direction: f64 },
+    Scalar(f64),
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -121,6 +131,11 @@ pub struct ProcessedSummary {
     #[serde(serialize_with = "serialize_rounded")]
     #[schemars(description = "Precipitation amount accumulated in mm")]
     pub precipitation_amount_accumulated: f64,
+    #[serde(serialize_with = "serialize_rounded")]
+    #[schemars(description = "Mean wind speed in km/h")]
+    pub wind_speed_mean: f64,
+    #[schemars(description = "Predominant wind directions ordered by frequency")]
+    pub wind_direction_predominant: String,
 }
 
 fn serialize_rounded<S>(value: &f64, serializer: S) -> Result<S::Ok, S::Error>
@@ -169,6 +184,8 @@ impl From<Summary> for HashMap<String, ProcessedSummary> {
                         relative_humidity_mean: summary.get_mean_relative_humidity(&date),
                         precipitation_amount_accumulated: summary
                             .get_precipitation_amount_accumulated(&date),
+                        wind_speed_mean: summary.get_mean_wind_speed(&date),
+                        wind_direction_predominant: summary.get_predominant_wind_direction(&date),
                     },
                 )
             })

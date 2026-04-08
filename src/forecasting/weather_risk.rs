@@ -10,6 +10,8 @@ impl WeatherRiskForecaster {
     const TEMPERATURE_HIGH_RANGE_THRESHOLD: f64 = 30.0;
     const RELATIVE_HUMIDITY_MEDIUM_HIGH_RANGE_THRESHOLD: f64 = 70.0;
     const RELATIVE_HUMIDITY_HIGH_RANGE_THRESHOLD: f64 = 85.0;
+    const WIND_SPEED_MEDIUM_THRESHOLD: f64 = 10.0;
+    const WIND_SPEED_HIGH_THRESHOLD: f64 = 20.0;
 
     pub fn new() -> Self {
         Self
@@ -68,6 +70,21 @@ impl RiskForecaster for WeatherRiskForecaster {
                         alerts.push(format!(
                             "Precipitation amount high {}mm at {}",
                             mean_precipitation_amount.round(),
+                            date
+                        ));
+                    }
+
+                    let mean_wind_speed = forecast.summary.get_mean_wind_speed(date);
+                    if mean_wind_speed > Self::WIND_SPEED_HIGH_THRESHOLD {
+                        alerts.push(format!(
+                            "Mean wind speed medium {}km/h at {}",
+                            mean_wind_speed.round(),
+                            date
+                        ));
+                    } else if mean_wind_speed > Self::WIND_SPEED_MEDIUM_THRESHOLD {
+                        alerts.push(format!(
+                            "Mean wind speed high {}km/h at {}",
+                            mean_wind_speed.round(),
                             date
                         ));
                     }
